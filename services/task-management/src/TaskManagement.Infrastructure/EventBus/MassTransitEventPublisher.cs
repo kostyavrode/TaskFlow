@@ -22,7 +22,10 @@ public class MassTransitEventPublisher : IEventPublisher
     public async Task PublishBatchAsync<TEvent>(IEnumerable<TEvent> events, CancellationToken cancellationToken = default) 
         where TEvent : class, IDomainEvent
     {
-        await _publishEndpoint.PublishBatch(events, cancellationToken);
+        foreach (var @event in events)
+        {
+            await _publishEndpoint.Publish(@event, cancellationToken);
+        }
     }
 }
 
