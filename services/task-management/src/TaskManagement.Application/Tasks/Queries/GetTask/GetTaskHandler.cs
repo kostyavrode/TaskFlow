@@ -36,7 +36,8 @@ public class GetTaskHandler : IRequestHandler<GetTaskQuery, Result<TaskDto>>
             Payload = task.Payload,
             CreatedAt = task.CreatedAt,
             UpdatedAt = task.UpdatedAt,
-            ScheduledAt = task.ScheduledAt
+            ScheduledAt = task.ScheduledAt,
+            ResultLocation = task.ResultLocation
         };
 
         return Result<TaskDto>.Success(taskDto);

@@ -1,11 +1,13 @@
+using TaskFlow.Contracts.Events.Tasks;
 using TaskManagement.Domain.Common;
 
 namespace TaskManagement.Domain.Events;
 
-public record TaskCreatedEvent : IDomainEvent
+public record TaskCreatedEvent : IDomainEvent, ITaskCreatedEvent
 {
     public Guid EventId { get; }
     public DateTime OccurredAt { get; }
+    public string CorrelationId { get; }
     public Guid TaskId { get; }
     public string UserId { get; }
     public string TaskType { get; }
@@ -19,10 +21,12 @@ public record TaskCreatedEvent : IDomainEvent
         string taskType,
         string priority,
         string? payload,
-        DateTime? scheduledAt)
+        DateTime? scheduledAt,
+        string? correlationId = null)
     {
         EventId = Guid.NewGuid();
         OccurredAt = DateTime.UtcNow;
+        CorrelationId = correlationId ?? Guid.NewGuid().ToString();
         TaskId = taskId;
         UserId = userId;
         TaskType = taskType;
@@ -31,5 +35,3 @@ public record TaskCreatedEvent : IDomainEvent
         ScheduledAt = scheduledAt;
     }
 }
-
-

@@ -28,7 +28,8 @@ public class GetUserTasksHandler : IRequestHandler<GetUserTasksQuery, Result<Lis
             Payload = task.Payload,
             CreatedAt = task.CreatedAt,
             UpdatedAt = task.UpdatedAt,
-            ScheduledAt = task.ScheduledAt
+            ScheduledAt = task.ScheduledAt,
+            ResultLocation = task.ResultLocation
         }).ToList();
 
         return Result<List<TaskDto>>.Success(taskDtos);

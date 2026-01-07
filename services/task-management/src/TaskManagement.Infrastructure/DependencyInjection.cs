@@ -1,7 +1,10 @@
-using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using TaskFlow.Infrastructure.EventBus;
+using TaskFlow.Infrastructure.Idempotency;
+using TaskFlow.Infrastructure.Outbox;
+using TaskManagement.Application.Tasks.Consumers;
 using TaskManagement.Domain.Repositories;
 using TaskManagement.Domain.Services;
 using TaskManagement.Infrastructure.EventBus;
@@ -17,29 +20,28 @@ public static class DependencyInjection
             options.UseNpgsql(configuration.GetConnectionString("TaskManagementDb")));
 
         services.AddScoped<ITaskRepository, TaskRepository>();
+        services.AddScoped<IOutboxRepository, OutboxRepository>();
+        services.AddScoped<IIdempotencyService, IdempotencyService>();
 
-        services.AddMassTransit(x =>
+        var eventBusConfig = new EventBusConfiguration
         {
-            x.UsingRabbitMq((context, cfg) =>
-            {
-                var rabbitMqHost = configuration["EventBus:Host"] ?? "localhost";
-                var rabbitMqPort = int.TryParse(configuration["EventBus:Port"], out var port) ? port : 5672;
-                var rabbitMqUser = configuration["EventBus:Username"] ?? "guest";
-                var rabbitMqPassword = configuration["EventBus:Password"] ?? "guest";
+            Host = configuration["EventBus:Host"] ?? "localhost",
+            Port = int.TryParse(configuration["EventBus:Port"], out var port) ? port : 5672,
+            Username = configuration["EventBus:Username"] ?? "guest",
+            Password = configuration["EventBus:Password"] ?? "guest"
+        };
 
-                cfg.Host(rabbitMqHost, (ushort)rabbitMqPort, "/", h =>
-                {
-                    h.Username(rabbitMqUser);
-                    h.Password(rabbitMqPassword);
-                });
-
-                cfg.ConfigureEndpoints(context);
-            });
+        services.AddTaskFlowEventBus("task-management", eventBusConfig, x =>
+        {
+            x.AddConsumer<TaskStartedConsumer>();
+            x.AddConsumer<TaskCompletedConsumer>();
+            x.AddConsumer<TaskFailedConsumer>();
         });
 
         services.AddScoped<IEventPublisher, MassTransitEventPublisher>();
 
+        services.AddHostedService<OutboxProcessor>();
+
         return services;
     }
 }
-

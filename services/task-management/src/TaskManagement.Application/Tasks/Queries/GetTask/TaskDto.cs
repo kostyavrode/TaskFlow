@@ -11,6 +11,7 @@ public record TaskDto
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
     public DateTime? ScheduledAt { get; init; }
+    public string? ResultLocation { get; init; }
 }
 
 

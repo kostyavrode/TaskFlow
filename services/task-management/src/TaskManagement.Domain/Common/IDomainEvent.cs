@@ -1,9 +1,7 @@
+using TaskFlow.Contracts.Events;
+
 namespace TaskManagement.Domain.Common;
 
-public interface IDomainEvent
+public interface IDomainEvent : IEvent
 {
-    Guid EventId { get; }
-    DateTime OccurredAt { get; }
 }
-
-

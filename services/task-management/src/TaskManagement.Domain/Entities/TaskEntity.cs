@@ -13,6 +13,7 @@ public class TaskEntity : BaseEntity
     public string? Payload { get; private set; }
     public TaskStatus Status { get; private set; }
     public DateTime? ScheduledAt { get; private set; }
+    public string? ResultLocation { get; private set; }
 
     private readonly List<IDomainEvent> _domainEvents = new();
     public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
@@ -44,6 +45,34 @@ public class TaskEntity : BaseEntity
             throw new InvalidOperationException("Task is already cancelled");
 
         Status = TaskStatus.Cancelled;
+        SetUpdatedAt();
+    }
+
+    public void MarkAsRunning()
+    {
+        if (Status != TaskStatus.Pending)
+            throw new InvalidOperationException($"Cannot mark task as running. Current status: {Status}");
+
+        Status = TaskStatus.Running;
+        SetUpdatedAt();
+    }
+
+    public void MarkAsCompleted(string? resultLocation = null)
+    {
+        if (Status != TaskStatus.Running && Status != TaskStatus.Pending)
+            throw new InvalidOperationException($"Cannot mark task as completed. Current status: {Status}");
+
+        Status = TaskStatus.Completed;
+        ResultLocation = resultLocation;
+        SetUpdatedAt();
+    }
+
+    public void MarkAsFailed()
+    {
+        if (Status == TaskStatus.Cancelled || Status == TaskStatus.Completed)
+            throw new InvalidOperationException($"Cannot mark task as failed. Current status: {Status}");
+
+        Status = TaskStatus.Failed;
         SetUpdatedAt();
     }
 

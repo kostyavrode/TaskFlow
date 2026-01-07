@@ -1,240 +1,149 @@
 # 🚀 TaskFlow - Microservices Task Management System
 
-Полностью микросервисная платформа для управления асинхронными бизнес-процессами с real-time уведомлениями.
+Полностью микросервисная платформа для управления асинхронными бизнес-процессами с **real-time уведомлениями**.
 
 ## 📐 Архитектура
 
-Система построена по принципам **microservices architecture**:
-- Database per Service
-- Event-Driven Communication
-- Loose Coupling
-- Autonomous Services
-- Eventual Consistency
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
+│    Web UI       │────▶│  Task Management │────▶│  Task Execution     │
+│  (SignalR)      │     │      API :5000   │     │     Worker          │
+└────────┬────────┘     └──────────────────┘     └─────────────────────┘
+         │                     │                          │
+         │                     │ TaskCreatedEvent         │ TaskStarted/Progress/
+         │                     ▼                          │ Completed Events
+         │               ┌──────────┐                     │
+         │               │ RabbitMQ │◀────────────────────┘
+         │               └──────────┘
+         │                     │
+         │                     ▼
+         │            ┌─────────────────┐
+         └───────────▶│  Notification   │
+           SignalR    │  Service :5002  │
+                      └─────────────────┘
+```
 
-## 🏗️ Текущее состояние
+## 🏗️ Реализованные этапы
 
-**Реализован Этап 1: Task Management Service** (полностью)
+| Этап | Сервис | Описание |
+|------|--------|----------|
+| ✅ 1 | Task Management API | REST API для создания/управления задачами |
+| ✅ 2 | Shared Infrastructure | Контракты событий, EventBus конфигурация |
+| ✅ 3 | Task Execution Worker | Выполнение задач с прогрессом и retry |
+| ✅ 4 | Notification Service | Real-time уведомления через SignalR |
 
-### Структура проекта
+## 📁 Структура проекта
 
 ```
 TaskFlow/
 ├── services/
-│   └── task-management/
-│       ├── src/
-│       │   ├── TaskManagement.Domain/        # Entities, Value Objects, Events
-│       │   ├── TaskManagement.Application/   # Commands, Queries, Handlers (CQRS)
-│       │   ├── TaskManagement.Infrastructure/ # EF Core, MassTransit, Repositories
-│       │   └── TaskManagement.Api/           # REST API Controllers
+│   ├── task-management/          # REST API (порт 5000)
+│   ├── task-execution/           # Worker Service
+│   └── notification/             # SignalR Hub (порт 5002)
+├── shared/
+│   ├── TaskFlow.Contracts/       # Интерфейсы событий
+│   └── TaskFlow.Infrastructure/  # EventBus, Idempotency
 ├── infrastructure/
-│   └── docker-compose.yml                     # PostgreSQL + RabbitMQ
-├── scripts/
-│   └── local-dev.ps1                          # Скрипт запуска окружения
-└── docs/                                      # Архитектурная документация
+│   └── docker-compose.yml        # PostgreSQL x2 + RabbitMQ
+├── web/
+│   └── index.html                # Web UI с SignalR
+└── scripts/
+    └── local-dev.ps1
 ```
-
-## 🛠️ Технологический стек
-
-- **.NET 8** - основной фреймворк
-- **Entity Framework Core 8** - ORM для PostgreSQL
-- **MediatR** - CQRS pattern
-- **FluentValidation** - валидация
-- **MassTransit** - event bus (RabbitMQ)
-- **PostgreSQL 16** - база данных
-- **RabbitMQ 3.13** - message broker
-
-## 🎯 Паттерны и практики
-
-### Clean Architecture
-- Domain Layer (бизнес-логика)
-- Application Layer (use cases, CQRS)
-- Infrastructure Layer (persistence, event bus)
-- API Layer (HTTP endpoints)
-
-### Domain-Driven Design
-- Rich Domain Model
-- Value Objects (Priority, TaskType)
-- Domain Events
-- Repository pattern
-
-### CQRS (Command Query Responsibility Segregation)
-- Commands для изменения состояния
-- Queries для чтения данных
-- MediatR для orchestration
-
-### Dependency Injection
-- Constructor injection
-- Interface-based dependencies
-- Extension methods для регистрации слоев
 
 ## 🚀 Быстрый старт
 
-### Требования
-
-- .NET 8 SDK
-- Docker Desktop
-- PowerShell (для Windows)
-
-### Запуск
-
-1. **Клонировать репозиторий**
-```bash
-git clone <repository-url>
-cd TaskFlow
-```
-
-2. **Запустить инфраструктуру**
+### 1. Запустить инфраструктуру
 ```powershell
-.\scripts\local-dev.ps1
+docker-compose -f infrastructure/docker-compose.yml up -d
 ```
 
-Этот скрипт:
-- Запустит PostgreSQL и RabbitMQ в Docker
-- Применит миграции базы данных
-- Покажет инструкции для запуска API
+### 2. Применить миграции
+```powershell
+# Task Management
+dotnet ef database update --project services/task-management/src/TaskManagement.Infrastructure --startup-project services/task-management/src/TaskManagement.Api
 
-3. **Запустить Task Management Service**
+# Task Execution
+dotnet ef database update --project services/task-execution/src/TaskExecution.Infrastructure --startup-project services/task-execution/src/TaskExecution.Worker
+```
+
+### 3. Запустить сервисы (3 терминала)
+
+**Terminal 1 - Task Management API:**
 ```bash
 cd services/task-management/src/TaskManagement.Api
 dotnet run
 ```
 
-API будет доступен на `http://localhost:5000`
-
-Swagger UI: `http://localhost:5000/swagger`
-
-### Доступ к инфраструктуре
-
-- **PostgreSQL**: `localhost:5432`
-  - Database: `task_management_db`
-  - User: `postgres`
-  - Password: `postgres`
-
-- **RabbitMQ Management**: `http://localhost:15672`
-  - User: `guest`
-  - Password: `guest`
-
-## 📡 API Endpoints
-
-### Tasks Controller
-
-**Создать задачу**
-```http
-POST /api/tasks
-Content-Type: application/json
-
-{
-  "userId": "user123",
-  "taskType": "Report",
-  "priority": "High",
-  "payload": "{\"reportId\": 42}",
-  "scheduledAt": null
-}
+**Terminal 2 - Task Execution Worker:**
+```bash
+cd services/task-execution/src/TaskExecution.Worker
+dotnet run
 ```
 
-**Получить задачу**
-```http
-GET /api/tasks/{taskId}?userId=user123
+**Terminal 3 - Notification Service:**
+```bash
+cd services/notification/src/Notification.Api
+dotnet run
 ```
 
-**Получить все задачи пользователя**
-```http
-GET /api/tasks/user/{userId}
+### 4. Открыть Web UI
+Открой `web/index.html` в браузере
+
+## 🔌 Порты
+
+| Сервис | Порт |
+|--------|------|
+| Task Management API | 5000 |
+| Notification Service (SignalR) | 5002 |
+| PostgreSQL (Task Management) | 5432 |
+| PostgreSQL (Task Execution) | 5433 |
+| RabbitMQ | 5672 |
+| RabbitMQ Management | 15672 |
+
+## 🔄 Поток событий
+
+1. **Создание задачи** → Task Management API
+2. **TaskCreatedEvent** → RabbitMQ
+3. **Task Execution Worker** получает событие
+4. **TaskStartedEvent** → Notification Service → SignalR → Web UI
+5. **TaskProgressUpdatedEvent** (10%, 30%, 60%, 80%) → Web UI обновляется
+6. **TaskCompletedEvent** → Web UI показывает "Completed"
+
+## 📡 SignalR Events
+
+```javascript
+connection.on("TaskCreated", notification => { ... });
+connection.on("TaskStarted", notification => { ... });
+connection.on("TaskProgress", notification => { ... });
+connection.on("TaskCompleted", notification => { ... });
+connection.on("TaskFailed", notification => { ... });
+connection.on("TaskCancelled", notification => { ... });
 ```
-
-**Отменить задачу**
-```http
-POST /api/tasks/{taskId}/cancel
-Content-Type: application/json
-
-{
-  "userId": "user123"
-}
-```
-
-## 🔍 Domain Model
-
-### TaskEntity
-- **Id**: Guid
-- **UserId**: string
-- **Type**: TaskType (Report, Email, DataProcessing, Notification, Backup)
-- **Priority**: Priority (Low, Medium, High, Critical)
-- **Status**: TaskStatus (Created, Pending, Cancelled)
-- **Payload**: string (JSON)
-- **ScheduledAt**: DateTime?
-
-### Domain Events
-- **TaskCreatedEvent** - публикуется при создании задачи
-- **TaskCancelledEvent** - при отмене
-- **TaskPriorityChangedEvent** - при изменении приоритета
-
-## 🎓 Объяснение кода
-
-### Dependency Injection
-
-Каждый слой регистрирует свои зависимости через extension methods:
-
-**Application Layer:**
-```csharp
-services.AddApplication();  // Регистрирует MediatR handlers и validators
-```
-
-**Infrastructure Layer:**
-```csharp
-services.AddInfrastructure(configuration);  // DbContext, Repositories, MassTransit
-```
-
-### CQRS Flow
-
-1. **HTTP Request** → Controller
-2. **Controller** создает Command/Query
-3. **MediatR** находит соответствующий Handler
-4. **Handler** вызывает Domain methods
-5. **Domain** выполняет бизнес-логику
-6. **Repository** сохраняет изменения
-7. **EventPublisher** отправляет события в RabbitMQ
-8. **Response** возвращается клиенту
-
-### Event-Driven Communication
-
-```csharp
-// Task Management Service публикует событие
-await _eventPublisher.PublishAsync(new TaskCreatedEvent(...));
-
-// Task Execution Service (будет в Этапе 3) подпишется на это событие
-// и начнет выполнение задачи
-```
-
-## 📋 Следующие этапы
-
-- [ ] Этап 2: Event Bus Infrastructure (расширенная настройка)
-- [ ] Этап 3: Task Execution Service (worker для выполнения задач)
-- [ ] Этап 4: Notification Service (real-time уведомления)
-- [ ] Этап 5: Scheduler Service (отложенные задачи)
-
-## 📚 Документация
-
-См. папку `/docs` для детальной архитектурной документации:
-- `task_flow_fully_microservices_architecture_documentation.md`
-- `task_flow_recommended_implementation_plan_project_structure.md`
 
 ## 🧪 Тестирование
 
-### Ручное тестирование через Swagger
+1. Открой `web/index.html`
+2. Проверь статусы: **API Connected** и **SignalR Connected**
+3. Создай задачу типа "Report"
+4. Наблюдай прогресс-бар в реальном времени!
 
-1. Запустить сервис: `dotnet run`
-2. Открыть `http://localhost:5000/swagger`
-3. Выполнить запросы через Swagger UI
+## 🛠️ Технологический стек
 
-### Проверка событий в RabbitMQ
+- **.NET 8**
+- **ASP.NET Core** (Web API, SignalR)
+- **Entity Framework Core 8** + PostgreSQL
+- **MassTransit 8.2** + RabbitMQ
+- **MediatR** (CQRS)
+- **FluentValidation**
 
-1. Открыть `http://localhost:15672`
-2. Войти (guest/guest)
-3. Перейти в Queues
-4. Проверить что события публикуются
+## 📋 Следующие этапы
+
+- [ ] Этап 5: Scheduler Service (отложенные задачи)
+- [ ] Этап 6: Observability (Serilog, OpenTelemetry)
+- [ ] Этап 7: Docker Compose для всех сервисов
+- [ ] Этап 8: API Gateway (YARP)
 
 ## 📝 Лицензия
 
 MIT
-
-

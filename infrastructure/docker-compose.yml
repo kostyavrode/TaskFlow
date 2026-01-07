@@ -19,6 +19,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  postgres-task-execution:
+    image: postgres:16-alpine
+    container_name: taskflow-postgres-task-execution
+    environment:
+      POSTGRES_DB: task_execution_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_task_execution_data:/var/lib/postgresql/data
+    networks:
+      - taskflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
@@ -38,13 +59,100 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  task-management-api:
+    build:
+      context: ..
+      dockerfile: services/task-management/src/TaskManagement.Api/Dockerfile
+    container_name: taskflow-task-management-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__TaskManagementDb=Host=postgres-task-management;Port=5432;Database=task_management_db;Username=postgres;Password=postgres
+      - EventBus__Host=rabbitmq
+      - EventBus__Port=5672
+      - EventBus__Username=guest
+      - EventBus__Password=guest
+      - REPORTS_VOLUME_PATH=/app/wwwroot/files/reports
+    ports:
+      - "5000:8080"
+    volumes:
+      - task_execution_reports:/app/wwwroot/files/reports:ro
+    depends_on:
+      postgres-task-management:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      task-execution-worker:
+        condition: service_started
+    networks:
+      - taskflow-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  task-execution-worker:
+    build:
+      context: ..
+      dockerfile: services/task-execution/src/TaskExecution.Worker/Dockerfile
+    container_name: taskflow-task-execution-worker
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__TaskExecutionDb=Host=postgres-task-execution;Port=5432;Database=task_execution_db;Username=postgres;Password=postgres
+      - EventBus__Host=rabbitmq
+      - EventBus__Port=5672
+      - EventBus__Username=guest
+      - EventBus__Password=guest
+      - EventBus__ConcurrencyLimit=5
+    volumes:
+      - task_execution_reports:/app/wwwroot/files/reports
+    depends_on:
+      postgres-task-execution:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - taskflow-network
+    restart: unless-stopped
+
+  notification-api:
+    build:
+      context: ..
+      dockerfile: services/notification/src/Notification.Api/Dockerfile
+    container_name: taskflow-notification-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - EventBus__Host=rabbitmq
+      - EventBus__Port=5672
+      - EventBus__Username=guest
+      - EventBus__Password=guest
+    ports:
+      - "5002:8080"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - taskflow-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
 
 volumes:
   postgres_task_management_data:
+  postgres_task_execution_data:
   rabbitmq_data:
+  task_execution_reports:
 
 networks:
   taskflow-network:
     driver: bridge
-
-
