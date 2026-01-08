@@ -49,3 +49,4 @@ echo "To stop services:"
 echo "  docker-compose down"
 echo ""
 
+

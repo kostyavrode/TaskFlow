@@ -64,3 +64,4 @@ docker-compose ps
 - **Web UI**: Откройте файл `web/index.html`
 - **RabbitMQ**: http://localhost:15672 (guest/guest)
 
+
