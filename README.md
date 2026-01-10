@@ -51,45 +51,6 @@ TaskFlow/
     └── local-dev.ps1
 ```
 
-## 🚀 Быстрый старт
-
-### 1. Запустить инфраструктуру
-```powershell
-docker-compose -f infrastructure/docker-compose.yml up -d
-```
-
-### 2. Применить миграции
-```powershell
-# Task Management
-dotnet ef database update --project services/task-management/src/TaskManagement.Infrastructure --startup-project services/task-management/src/TaskManagement.Api
-
-# Task Execution
-dotnet ef database update --project services/task-execution/src/TaskExecution.Infrastructure --startup-project services/task-execution/src/TaskExecution.Worker
-```
-
-### 3. Запустить сервисы (3 терминала)
-
-**Terminal 1 - Task Management API:**
-```bash
-cd services/task-management/src/TaskManagement.Api
-dotnet run
-```
-
-**Terminal 2 - Task Execution Worker:**
-```bash
-cd services/task-execution/src/TaskExecution.Worker
-dotnet run
-```
-
-**Terminal 3 - Notification Service:**
-```bash
-cd services/notification/src/Notification.Api
-dotnet run
-```
-
-### 4. Открыть Web UI
-Открой `web/index.html` в браузере
-
 ## 🔌 Порты
 
 | Сервис | Порт |
@@ -121,12 +82,6 @@ connection.on("TaskFailed", notification => { ... });
 connection.on("TaskCancelled", notification => { ... });
 ```
 
-## 🧪 Тестирование
-
-1. Открой `web/index.html`
-2. Проверь статусы: **API Connected** и **SignalR Connected**
-3. Создай задачу типа "Report"
-4. Наблюдай прогресс-бар в реальном времени!
 
 ## 🛠️ Технологический стек
 
